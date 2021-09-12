@@ -13,4 +13,8 @@ router.get('/user/:userId', booksControllers.getBooksByUserId);
 
 router.post('/', booksControllers.createBooksList)
 
+router.patch('/:bid', booksControllers.updateBooks);
+
+router.delete('/:bid', booksControllers.deleteBooks);
+
 module.exports = router;

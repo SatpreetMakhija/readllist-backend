@@ -1,5 +1,5 @@
 
-const DUMMY_BOOKS = [
+let DUMMY_BOOKS = [
     {
         id: 'b1',
         creator: 'u1',
@@ -40,11 +40,11 @@ const getBooksById = (req, res, next) => {
 const getBooksByUserId = (req, res, next) => {
     console.log("inside get books function")
     const userId = req.params.userId;
-    const books = DUMMY_BOOKS.find(b => {
+    const books = DUMMY_BOOKS.filter(b => {
         return b.creator === userId;
     });
 
-    if (!books) {
+    if (!books || books.length === 0) {
         const error = new Error("Could not find a user for the provided id.");
         error.code = 404;
         return next(error);
@@ -66,6 +66,36 @@ const createBooksList = (req, res, next) => {
     res.status(201).json({books: createdBooksList});
 };
 
+
+
+const updateBooks = (req, res, next) => {
+      const {readList} = req.body;
+      const booksId = req.params.bid;
+
+
+      const updatedBooks = DUMMY_BOOKS.find(b => b.id = booksId);
+      const booksIndex = DUMMY_BOOKS.findIndex(b => b.id === booksId);
+      updatedBooks.readList = readList;
+
+      DUMMY_BOOKS[booksIndex] = updatedBooks;
+
+      res.status(200).json({book: updatedBooks})
+
+
+};
+
+const deleteBooks = (req, res, next) => {
+  const booksId = req.params.bid;
+  DUMMY_BOOKS = DUMMY_BOOKS.filter(b => b.id !== booksId);
+  res.status(200).json({message: 'Deleted BooksList'});
+};
+
+
+
+
+
 exports.getBooksById = getBooksById;
 exports.getBooksByUserId = getBooksByUserId;
 exports.createBooksList = createBooksList;
+exports.updateBooks = updateBooks;
+exports.deleteBooks = deleteBooks;
