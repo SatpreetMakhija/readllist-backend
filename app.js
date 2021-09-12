@@ -2,12 +2,14 @@ const express = require('express');
 const bodyParser = require('body-parser');
 
 const booksRoutes = require('./routes/books-routes');
-
+const usersRoutes = require('./routes/users-routes');
+const { application } = require('express');
 const app = express();
 
 app.use(bodyParser.json());
 
 app.use( '/api/books', booksRoutes);
+app.use('/api/users', usersRoutes);
 
 //middleware for any other not defined API endpoints
 app.use((req, res, next) => {
