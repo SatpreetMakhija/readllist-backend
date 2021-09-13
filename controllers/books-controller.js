@@ -1,5 +1,8 @@
 const { validationResult } = require("express-validator");
+const mongoose = require("mongoose");
+const mongooseUniqueValidator = require("mongoose-unique-validator");
 const booksList = require("../models/booksList");
+const User = require("../models/user");
 
 let DUMMY_BOOKS = [
   {
@@ -62,7 +65,7 @@ const getBooksByUserId = async (req, res, next) => {
     return next(error);
   }
 
-  res.json({ books: books.map(place => place.toObject({getters: true}) ) });
+  res.json({ books: books.map((place) => place.toObject({ getters: true })) });
 };
 
 const createBooksList = async (req, res, next) => {
@@ -76,16 +79,43 @@ const createBooksList = async (req, res, next) => {
   const { creator, readList } = req.body;
   //const id = req.body.title;
   const createdBooksList = new booksList({
-    creator,
+    creator: mongoose.Types.ObjectId(creator),
     readList,
   });
+  console.log("NEWLY CREATED BOOKLIST IS HERE")
+  console.log(createdBooksList);
+  let user;
 
   try {
-    await createdBooksList.save();
+    user = await User.findById(creator);
+  } catch (err) {
+    const error = new Error("Creating place failed, please try again.");
+    error.code = 500;
+    return next(error);
+  }
+
+  if (!user) {
+    const error = new Error("Could not find user for provided id.");
+    error.code(404);
+    return next(error);
+  }
+
+  console.log(user);
+
+  try {
+    //we use sessions and transactions to ensure that both things happen, first bookList gets created and
+    //second, the bookLists's id gets added to the user's bookLists array.
+    const sess = await mongoose.startSession();
+    sess.startTransaction();
+    await createdBooksList.save({ session: sess });
+    user.bookLists.push(createdBooksList);
+    await user.save({ session: sess });
+    await sess.commitTransaction();
+
   } catch (err) {
     const error = new Error("Creating booksList failed, please try again.");
     error.code = 500;
-    throw error;
+    return next(error);
   }
 
   res.status(201).json({ books: createdBooksList });
@@ -110,16 +140,15 @@ const updateBooks = async (req, res, next) => {
   }
 
   books.readList = readList;
-  
 
   try {
-    await books.save()
+    await books.save();
   } catch (err) {
-    const error = new Error("Something went wrong, could not update place.")
+    const error = new Error("Something went wrong, could not update place.");
     throw error;
   }
 
-  res.status(200).json({ book: books.toObject({getters: true}) });
+  res.status(200).json({ book: books.toObject({ getters: true }) });
 };
 
 const deleteBooks = async (req, res, next) => {
@@ -127,23 +156,41 @@ const deleteBooks = async (req, res, next) => {
 
   let books;
   try {
-    books = await booksList.findById(booksId);
-
+    books = await booksList.findById(booksId).populate('creator');
+    console.log(books)
   } catch (err) {
-    const error = new Error('Something went wrong, could not delete booksList.');
+    const error = new Error(
+      "Something went wrong, could not delete booksList."
+    );
     return next(error);
   }
 
+  if (!books) {
+    const error = new Error("Could not find booksList for this id.");
+    return next(error);
+  }
+  console.log(books.creator);
+
   try {
-    await books.remove();
+    const sess = await mongoose.startSession();
+    sess.startTransaction();
+    await books.remove({ session: sess });
+    console.log(books.creator.name);
+    books.creator.bookLists.pull(books);
+    await books.creator.save({ session: sess });
+    await sess.commitTransaction();
+
+
   } catch (err) {
-    const error = new Error('Something went wrong, could not delete booksList.');
-    throw error;
+    console.log("[INFO]: HELLO THIS IS THE ERROR")
+    console.log(err);
+    const error = new Error(
+      "Something went wrong, could not delete booksList."
+    );
+    return next(error);
   }
 
-  
-    res.status(200).json({ message: "Deleted BooksList" });
-  
+  res.status(200).json({ message: "Deleted BooksList" });
 };
 
 exports.getBooksById = getBooksById;
